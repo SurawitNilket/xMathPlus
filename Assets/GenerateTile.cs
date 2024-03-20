@@ -31,6 +31,8 @@ public class GenerateTile : MonoBehaviour
 
     public static int tileCount;
     public static int boardSize = 10;
+    public static List<Tile> blankedTile;
+    public static List<Tile> givenTile;
 
     public static List<string> operatorList;
     public static Tile[,] spaceMatrix;
@@ -80,9 +82,11 @@ public class GenerateTile : MonoBehaviour
         {
             InitializeSpaceMatrix();
             tileCount = 0;
+            blankedTile = new List<Tile>();
+            givenTile = new List<Tile>();
             InitializeFirstTile();
             while (CreateALine()) {}
-            if (tileCount > tileCountRequired) { break; }
+            if (tileCount > tileCountRequired) { if (CreateVariables() == true) { break; }}
         }
     }
 
@@ -168,9 +172,9 @@ public class GenerateTile : MonoBehaviour
             int randomTileIndex = Random.Range(0, availableTileList.Count);
             line.pivot = availableTileList[randomTileIndex];
             availableTileList[randomTileIndex].isPivot = true;
-            bool pass = TestLinePlacement(line);
+            bool pass1 = TestLinePlacement(line);
             availableTileList[randomTileIndex].isPivot = false;
-            if (pass == true)
+            if (pass1 == true)
             {
                 Eliminate(line);
                 LineToTiles(line);
@@ -423,8 +427,8 @@ public class GenerateTile : MonoBehaviour
             _e = CalculateEachGroup(_e, "×");
             _e = CalculateEachGroup(_e, "÷");
             if (_e[0] == "Break") { return _e; }
-            _e = CalculateEachGroup(_e, "+");
             _e = CalculateEachGroup(_e, "-");
+            _e = CalculateEachGroup(_e, "+");
 
             return (_e);
         }
@@ -445,8 +449,8 @@ public class GenerateTile : MonoBehaviour
         _e = CalculateEachGroup(_e, "×");
         _e = CalculateEachGroup(_e, "÷");
         if (_e[0] == "Break") {return _e[0];}
-        _e = CalculateEachGroup(_e, "+");
         _e = CalculateEachGroup(_e, "-");
+        _e = CalculateEachGroup(_e, "+");
 
         return _e[0];
     }
@@ -478,8 +482,8 @@ public class GenerateTile : MonoBehaviour
                             break;
                         }
                     }
-                    if (operation == "+") { f = a + b; }
                     if (operation == "-") { f = a - b; }
+                    if (operation == "+") { f = a + b; }
 
                     result = ((int)f).ToString();
                 }
@@ -584,7 +588,18 @@ public class GenerateTile : MonoBehaviour
                 {
                     spaceMatrix[p, line.pivot.y].isIntersected = true;
                 }
-                if (i == line.blankedIndex) { spaceMatrix[p, line.pivot.y].isBlank = true; }
+                if (spaceMatrix[p, line.pivot.y].isBlank == false) 
+                {
+                    if ( i == line.blankedIndex )
+                    {
+                        spaceMatrix[p, line.pivot.y].isBlank = true; 
+                        blankedTile.Add(spaceMatrix[p, line.pivot.y]); 
+                    }
+                    else if (spaceMatrix[p, line.pivot.y].type == "Number")
+                    {
+                        givenTile.Add(spaceMatrix[p, line.pivot.y]);
+                    }
+                }
             }
             else
             {
@@ -596,10 +611,72 @@ public class GenerateTile : MonoBehaviour
                 {
                     spaceMatrix[line.pivot.x, p].isIntersected = true;
                 }
-                if (i == line.blankedIndex) { spaceMatrix[line.pivot.x, p].isBlank = true; }
+                if (spaceMatrix[line.pivot.x, p].isBlank == false) 
+                {
+                    if ( i == line.blankedIndex )
+                    {
+                        spaceMatrix[line.pivot.x, p].isBlank = true; 
+                        blankedTile.Add(spaceMatrix[line.pivot.x, p]); 
+                    }
+                    else if (spaceMatrix[line.pivot.x, p].type == "Number")
+                    {
+                        givenTile.Add(spaceMatrix[line.pivot.x, p]);
+                    }
+                }
             }
             i++;
         }
+    }
+
+    public bool CreateVariables() 
+    {
+        if (variable == false) { return true; }
+
+        int a = 0;
+        for (int i = 1; i < 1000; i++)
+        {
+            if (AssignVariable(a) == true)
+            {
+                a++;
+            }
+            if (blankedTile.Count <= 2 || a == 3 + (difficultyValue * 8)) {
+                if (a == 0) {
+                    return false;
+                }
+                else
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public bool AssignVariable(int a)
+    {
+        string[] groups = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"};
+        int randomIndex = Random.Range(0, blankedTile.Count);
+        for (int i = 0; i < givenTile.Count; i++)
+        {
+            if (blankedTile[randomIndex].value == givenTile[i].value && blankedTile[randomIndex] != givenTile[i] && blankedTile[randomIndex].x != givenTile[i].x && blankedTile[randomIndex].y != givenTile[i].y && blankedTile[randomIndex].group == "" && givenTile[i].group == "" && Mathf.Abs(blankedTile[randomIndex].x - givenTile[i].x) + Mathf.Abs(blankedTile[randomIndex].y - givenTile[i].y) > 9) 
+            {
+                if (a != 0 || Random.Range(0, 10) == 0) 
+                { 
+                        givenTile[i].group = groups[a];
+                        givenTile[i].isBlank = true;
+                        blankedTile[randomIndex].group = groups[a];
+                        givenTile.RemoveAt(i);
+                        blankedTile.RemoveAt(randomIndex);
+                }
+                else 
+                {
+                    return false;
+                }
+                return true; 
+            }
+        }
+        blankedTile.RemoveAt(randomIndex);
+        return false;
     }
 
     // ==================== End of Modifier Functions ====================
@@ -612,6 +689,7 @@ public class Tile
     public int y;
     public string value = "Void";
     public string type = "Void";
+    public string group = "";
     public bool isIntersected = false;
     public bool isPivot = false;
     public bool isBlank = false;
